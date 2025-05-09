@@ -135,6 +135,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+old_env/
 
 # Spyder project settings
 .spyderproject
@@ -172,3 +173,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Misc.
+old_requirements.txt

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
-from extraction import perform_ner
+from extraction import perform_ner, extract_action
 from mood import detect_mood
 
 # -----------------------------------------------------------------------------
@@ -52,21 +52,28 @@ def _partition_entities(entities: List[dict]) -> Tuple[List[str], List[str]]:
 # Public builders
 # -----------------------------------------------------------------------------
 
-def build_image_prompt(text: str, *, style: str | None = None, include_context: bool = False) -> str:
-    """Compose an image‑generation prompt from a paragraph *text*.
+def build_image_prompt(
+    text: str,
+    *,
+    style: str | None = None,
+    include_context: bool = False,
+) -> str:
+    """Return a prompt string for Stable Diffusion / GPT‑Image‑1.
 
-    If *include_context* is True, prepend a CONTEXT section so models like
-    GPT‑Image‑1 can reference the full prose while still following the
-    structured IMAGE INSTRUCTIONS.
+    * Extracts entities (PER, LOC)
+    * Extracts main action phrase
+    * Adds mood tag and default style block
+    * Optionally prepends a CONTEXT section for GPT‑Image‑1
     """
-    # 1 Analyse
     ents = perform_ner(text)
     mood = detect_mood(text)[0]["mood"]
+    action = extract_action(text)
     people, places = _partition_entities(ents)
 
-    # 2 Structured parts
     parts: List[str] = []
     parts.extend(people or ["a figure"])
+    if action:
+        parts.append(action)
     if places:
         parts.append("in " + ", ".join(places))
     parts.append(f"mood: {mood}")
@@ -74,13 +81,13 @@ def build_image_prompt(text: str, *, style: str | None = None, include_context: 
     if style:
         parts.append(style)
 
-    instr = "; ".join(parts)
+    instructions = "; ".join(parts)
 
     if not include_context:
-        return instr
+        return instructions
 
     context = text.strip()
-    return f"### CONTEXT\n{context}\n\n### IMAGE INSTRUCTIONS\n{instr}"
+    return f"### CONTEXT\n{context}\n\n### IMAGE INSTRUCTIONS\n{instructions}"
 
 
 def build_audio_prompt(text: str) -> str:
@@ -94,6 +101,6 @@ def build_audio_prompt(text: str) -> str:
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    sample = "Harry and Hermione raced across the fog‑shrouded streets of London at dawn, hearts pounding."
-    print("IMAGE PROMPT:\n", build_image_prompt(sample, include_context=True))
+    sample = "Breathing hard, Harry and Ron sprinted across the rain-slick platform toward the scarlet Hogwarts Express as its whistle shrieked, sparks cascading from the engine’s smokestack."
+    print("IMAGE PROMPT:\n", build_image_prompt(sample, include_context=False))
     print("\nAUDIO PROMPT:\n", build_audio_prompt(sample))
